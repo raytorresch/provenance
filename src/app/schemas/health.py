@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict
-
 from pydantic import BaseModel, Field
 
 
@@ -11,6 +9,6 @@ class HealthResponse(BaseModel):
         description="'healthy' all works, 'degraded' something failed",
     )
     version: str
-    dependencies: Dict[str, bool] = Field(
+    dependencies: dict[str, bool] = Field(
         ..., description="Dependencies status (database, ...)"
     )
