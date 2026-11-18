@@ -10,6 +10,13 @@ from app.core.config import get_settings
 _pool: AsyncConnectionPool | None = None
 
 
+def get_sqlalchemy_url() -> str:
+    url = get_settings().VECTOR_DB_URL
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
 async def init_db_pool() -> None:
     global _pool
     settings = get_settings()

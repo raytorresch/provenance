@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from app.core.config import get_settings
+from app.core.database import get_sqlalchemy_url
 from app.models.rag import Base
 
 # this is the Alembic Config object, which provides
@@ -17,15 +17,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-
-def _get_url() -> str:
-    url = get_settings().VECTOR_DB_URL
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return url
-
-
-config.set_main_option("sqlalchemy.url", _get_url())
+config.set_main_option("sqlalchemy.url", get_sqlalchemy_url())
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
