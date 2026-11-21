@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     )
 
     PROJECT_NAME: str = Field(
-            default="Provenance",
-            validation_alias=AliasChoices("PROJECT_NAME", AliasPath("project", "name")),
-        )
+        default="Provenance",
+        validation_alias=AliasChoices("PROJECT_NAME", AliasPath("project", "name")),
+    )
     VERSION: str = Field(
         default="1.0.0",
         validation_alias=AliasChoices("VERSION", AliasPath("project", "version")),
@@ -41,6 +41,7 @@ class Settings(BaseSettings):
             AliasPath("project", "openai_api_key"),
         ),
     )
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -15,7 +15,7 @@ router = APIRouter()
 async def health_check(
     pool: AsyncConnectionPool | None = Depends(get_pool),
     settings: Settings = Depends(get_settings),
-    response: Response = Response
+    response: Response = Response,
 ) -> HealthResponse:
     repository = HealthRepository(pool)
     database_ok = await repository.ping()

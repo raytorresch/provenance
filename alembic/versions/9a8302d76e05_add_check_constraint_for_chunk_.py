@@ -27,6 +27,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "ck_chunk_embedding_dims", "chunk_embeddings", type_="check"
-    )
+    op.drop_constraint("ck_chunk_embedding_dims", "chunk_embeddings", type_="check")

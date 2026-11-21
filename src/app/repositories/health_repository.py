@@ -15,7 +15,10 @@ class HealthRepository:
         if self._pool is None:
             return False
         try:
-            async with self._pool.connection() as connection, connection.cursor() as cursor:
+            async with (
+                self._pool.connection() as connection,
+                connection.cursor() as cursor,
+            ):
                 await cursor.execute("SELECT 1")
                 result = await cursor.fetchone()
             return result == (1,)
