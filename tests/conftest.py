@@ -19,6 +19,7 @@ def db_session() -> Iterator[Session]:
         yield session
     finally:
         session.close()
-        transaction.rollback()
+        if transaction.is_active:
+            transaction.rollback()
         connection.close()
         engine.dispose()
