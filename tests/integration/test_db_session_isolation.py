@@ -3,8 +3,8 @@ from __future__ import annotations
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from app.adapters.outbound.persistence.models.rag import Document
 from app.core.database import get_sqlalchemy_url
-from app.models.rag import Document
 
 
 def test_commit_inside_session_does_not_escape_rollback() -> None:
@@ -31,9 +31,10 @@ def test_commit_inside_session_does_not_escape_rollback() -> None:
     engine.dispose()
 
     verify_engine = create_engine(get_sqlalchemy_url())
-    with verify_engine.connect() as verify_connection, Session(
-        bind=verify_connection
-    ) as verify_session:
+    with (
+        verify_engine.connect() as verify_connection,
+        Session(bind=verify_connection) as verify_session,
+    ):
         stmt = select(Document).where(Document.adr_code == "ADR-TEST-COMMIT-ESCAPE")
         assert verify_session.scalars(stmt).first() is None
     verify_engine.dispose()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models.rag import Chunk, Document
+from app.adapters.outbound.persistence.models.rag import Chunk, Document
 
 
 def test_insert_and_read_back_chunk(db_session: Session) -> None:

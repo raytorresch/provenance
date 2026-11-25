@@ -16,7 +16,9 @@ def test_extract_markdown_returns_file_contents(tmp_path: Path) -> None:
     assert result == "# Title\nSome café ☕ content."
 
 
-def test_extract_markdown_raises_file_not_found_for_missing_file(tmp_path: Path) -> None:
+def test_extract_markdown_raises_file_not_found_for_missing_file(
+    tmp_path: Path,
+) -> None:
     missing = tmp_path / "missing.md"
 
     with pytest.raises(FileNotFoundError, match=str(missing)):

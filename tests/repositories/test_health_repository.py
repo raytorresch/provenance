@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Self
 
-from app.repositories.health_repository import HealthRepository
+from app.adapters.outbound.health.health_repository import HealthRepository
 
 
 class _FakeCursor:

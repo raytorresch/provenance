@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.rag import Chunk, ChunkEmbedding, Document
+from app.adapters.outbound.persistence.models.rag import Chunk, ChunkEmbedding, Document
 
 
 def test_check_constraint_rejects_mismatched_dimensions(db_session: Session) -> None:

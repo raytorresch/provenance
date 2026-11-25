@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.rag import Chunk, ChunkEmbedding, Document
+from app.adapters.outbound.persistence.models.rag import Chunk, ChunkEmbedding, Document
 
 
 def test_chunk_embeddings_support_multiple_dimensions_per_document(
@@ -147,7 +147,9 @@ def test_deleting_document_cascades_to_chunks_and_embeddings(
     # Raw SQL, bypassing the ORM's own delete-orphan cascade, so this proves
     # the database's ON DELETE CASCADE actually enforces it, not just the
     # SQLAlchemy relationship config.
-    db_session.execute(text("DELETE FROM documents WHERE id = :id"), {"id": document_id})
+    db_session.execute(
+        text("DELETE FROM documents WHERE id = :id"), {"id": document_id}
+    )
     db_session.expire_all()
 
     assert db_session.get(Document, document_id) is None
