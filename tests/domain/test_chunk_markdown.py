@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from app.domain.chunking import _split_long_section, chunk_markdown
+from app.domain.chunking import (
+    _split_long_section,
+    build_chunking_strategy,
+    chunk_markdown,
+)
 
 
 def test_empty_document_produces_no_chunks() -> None:
@@ -114,9 +118,35 @@ def test_split_long_section_overlaps_small_trailing_block_into_next_part() -> No
     assert parts == ["AAAAA\n\nBBBBB", "BBBBB\n\nCCCCC"]
 
 
-def test_split_long_section_keeps_code_block_atomic_despite_internal_blank_line() -> None:
+def test_split_long_section_keeps_code_block_atomic_despite_internal_blank_line() -> (
+    None
+):
     text = "```\nline1\n\nline2\n```"
 
     parts = _split_long_section(text, max_chars=1)
 
     assert parts == [text]
+
+
+def test_trailing_colon_is_stripped_from_heading_path() -> None:
+    chunks = chunk_markdown("# T\n## Context:\nSome text.")
+
+    assert chunks[0].heading_path == "T > Context"
+
+
+def test_build_chunking_strategy_encodes_max_chars_and_header_flag() -> None:
+    assert (
+        build_chunking_strategy(1500, contextual_header=True)
+        == "by_heading_v1:max=1500:hdr=1"
+    )
+    assert (
+        build_chunking_strategy(1500, contextual_header=False)
+        == "by_heading_v1:max=1500:hdr=0"
+    )
+
+
+def test_build_chunking_strategy_changes_label_when_max_chars_changes() -> None:
+    small = build_chunking_strategy(500, contextual_header=True)
+    large = build_chunking_strategy(1500, contextual_header=True)
+
+    assert small != large
