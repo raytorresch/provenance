@@ -14,6 +14,7 @@ class IngestOutcome(StrEnum):
     ALREADY_EXISTS = "already_exists"
     NO_CONTENT = "no_content"
     SAVED = "saved"
+    NOT_SAVED = "not_saved"
 
 
 class IngestAdrUseCase:
@@ -72,5 +73,9 @@ class IngestAdrUseCase:
             embeddings=vectors,
             model_name=self._embedder.model_name,
         )
-        self._repo.save_document_with_embeddings(save_payload)
+        saved = self._repo.save_document_with_embeddings(save_payload)
+
+        if not saved:
+            return IngestOutcome.NOT_SAVED
+
         return IngestOutcome.SAVED

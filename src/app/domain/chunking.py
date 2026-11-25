@@ -126,6 +126,7 @@ def chunk_markdown(text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[ChunkD
     # Subdividir secciones muy largas y asignar ordinal secuencial
     chunks: list[ChunkData] = []
     ordinal = 0
+    strategy = build_chunking_strategy(max_chars=max_chars, contextual_header=True)
     for path, content in raw_sections:
         for sub_content in _split_long_section(content, max_chars=max_chars):
             chunks.append(
@@ -133,6 +134,7 @@ def chunk_markdown(text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[ChunkD
                     ordinal=ordinal,
                     heading_path=path,
                     content=sub_content,
+                    chunk_strategy=strategy,
                 )
             )
             ordinal += 1
