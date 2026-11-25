@@ -42,6 +42,14 @@ class Settings(BaseSettings):
         ),
     )
 
+    EMBEDDING_PROVIDER: str = Field(default="openai")
+    EMBEDDING_API_KEY: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("EMBEDDING_API_KEY", "OPENAI_API_KEY"),
+    )
+    EMBEDDING_BASE_URL: str | None = Field(default=None)
+    EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
+
 
 @lru_cache
 def get_settings() -> Settings:
