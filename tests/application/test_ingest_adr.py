@@ -2,49 +2,24 @@ from __future__ import annotations
 
 import hashlib
 
-from app.application.ingest_adr import IngestAdrUseCase
-from app.domain.chunking import chunk_markdown
-from app.domain.entities import ChunkData, DocumentInput, RetrievedChunk
+from app.application.ingest_adr import IngestAdrUseCase, IngestOutcome
+from app.domain.chunking import build_chunking_strategy, chunk_markdown
+from app.domain.entities import DocumentInput, FetchDocumentPayload, SaveDocumentPayload
 
 
 class _FakeRepository:
     def __init__(self, exists: bool = False) -> None:
         self._exists = exists
-        self.save_calls: list[dict] = []
+        self.exists_calls: list[FetchDocumentPayload] = []
+        self.save_calls: list[SaveDocumentPayload] = []
 
-    def exists_by_hash(self, content_hash: str) -> bool:
+    def exists_by_keys(self, payload: FetchDocumentPayload) -> bool:
+        self.exists_calls.append(payload)
         return self._exists
 
-    def save_document_with_embeddings(
-        self,
-        adr_code: str,
-        title: str,
-        source_url: str,
-        content_hash: str,
-        chunks: list[ChunkData],
-        embeddings: list[list[float]],
-        model_name: str,
-    ) -> int:
-        self.save_calls.append(
-            {
-                "adr_code": adr_code,
-                "title": title,
-                "source_url": source_url,
-                "content_hash": content_hash,
-                "chunks": chunks,
-                "embeddings": embeddings,
-                "model_name": model_name,
-            }
-        )
+    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> int:
+        self.save_calls.append(payload)
         return len(self.save_calls)
-
-    def search_similar(
-        self,
-        query_embedding: list[float],
-        model_name: str,
-        top_k: int = 5,
-    ) -> list[RetrievedChunk]:
-        raise NotImplementedError
 
 
 class _FakeEmbedder:
@@ -71,29 +46,48 @@ def _make_doc(raw_markdown: str) -> DocumentInput:
     )
 
 
-def test_execute_returns_false_and_skips_embedding_when_document_already_exists() -> None:
+def test_execute_returns_already_exists_and_skips_embedding() -> None:
     repo = _FakeRepository(exists=True)
     embedder = _FakeEmbedder()
 
-    result = IngestAdrUseCase(repo, embedder).execute(_make_doc("# Title\nSome content."))
+    result = IngestAdrUseCase(repo, embedder).execute(
+        _make_doc("# Title\nSome content.")
+    )
 
-    assert result is False
+    assert result is IngestOutcome.ALREADY_EXISTS
     assert embedder.call_count == 0
     assert repo.save_calls == []
 
 
-def test_execute_returns_false_when_markdown_produces_no_chunks() -> None:
+def test_execute_checks_existence_by_adr_code_hash_strategy_and_model() -> None:
+    repo = _FakeRepository(exists=True)
+    embedder = _FakeEmbedder()
+    doc = _make_doc("# Title\nSome content.")
+    expected_hash = hashlib.sha256(doc.raw_markdown.encode("utf-8")).hexdigest()
+    expected_strategy = build_chunking_strategy(contextual_header=True)
+
+    IngestAdrUseCase(repo, embedder).execute(doc)
+
+    assert len(repo.exists_calls) == 1
+    checked = repo.exists_calls[0]
+    assert checked.adr_code == doc.adr_code
+    assert checked.content_hash == expected_hash
+    assert checked.chunking_strategy == expected_strategy
+    assert checked.model_name == "fake-model"
+
+
+def test_execute_returns_no_content_when_markdown_produces_no_chunks() -> None:
     repo = _FakeRepository(exists=False)
     embedder = _FakeEmbedder()
 
     result = IngestAdrUseCase(repo, embedder).execute(_make_doc("   \n\n  "))
 
-    assert result is False
+    assert result is IngestOutcome.NO_CONTENT
     assert embedder.call_count == 0
     assert repo.save_calls == []
 
 
-def test_execute_injects_heading_path_before_embedding() -> None:
+def test_execute_injects_heading_path_before_embedding_by_default() -> None:
     repo = _FakeRepository(exists=False)
     embedder = _FakeEmbedder()
     doc = _make_doc("# Title\nSome content.")
@@ -103,22 +97,46 @@ def test_execute_injects_heading_path_before_embedding() -> None:
     assert embedder.received_texts == ["Title\n\nSome content."]
 
 
-def test_execute_persists_hash_chunks_embeddings_and_returns_true() -> None:
+def test_execute_skips_header_injection_when_disabled() -> None:
+    repo = _FakeRepository(exists=False)
+    embedder = _FakeEmbedder()
+    doc = _make_doc("# Title\nSome content.")
+
+    IngestAdrUseCase(repo, embedder, contextual_header=False).execute(doc)
+
+    assert embedder.received_texts == ["Some content."]
+
+
+def test_execute_persists_hash_strategy_chunks_embeddings_and_returns_saved() -> None:
     repo = _FakeRepository(exists=False)
     embedder = _FakeEmbedder()
     doc = _make_doc("# Title\nSome content.")
     expected_hash = hashlib.sha256(doc.raw_markdown.encode("utf-8")).hexdigest()
     expected_chunks = chunk_markdown(doc.raw_markdown)
+    expected_strategy = build_chunking_strategy(contextual_header=True)
 
     result = IngestAdrUseCase(repo, embedder).execute(doc)
 
-    assert result is True
+    assert result is IngestOutcome.SAVED
     assert len(repo.save_calls) == 1
     call = repo.save_calls[0]
-    assert call["adr_code"] == doc.adr_code
-    assert call["title"] == doc.title
-    assert call["source_url"] == doc.source_url
-    assert call["content_hash"] == expected_hash
-    assert call["chunks"] == expected_chunks
-    assert call["embeddings"] == [[0.0]]
-    assert call["model_name"] == "fake-model"
+    assert call.adr_code == doc.adr_code
+    assert call.title == doc.title
+    assert call.source_url == doc.source_url
+    assert call.content_hash == expected_hash
+    assert call.chunking_strategy == expected_strategy
+    assert call.chunks == expected_chunks
+    assert call.embeddings == [[0.0]]
+    assert call.model_name == "fake-model"
+
+
+def test_execute_with_different_max_chars_produces_a_different_strategy_label() -> None:
+    repo = _FakeRepository(exists=False)
+    embedder = _FakeEmbedder()
+    doc = _make_doc("# Title\nSome content.")
+
+    IngestAdrUseCase(repo, embedder, max_chars=500).execute(doc)
+
+    assert repo.save_calls[0].chunking_strategy == build_chunking_strategy(
+        500, contextual_header=True
+    )
