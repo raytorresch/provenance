@@ -26,7 +26,7 @@ class EmbeddingProviderPort(Protocol):
     def embed_query(self, text: str) -> list[float]: ...
 
 
-class ReadDocumentPort(Protocol):
+class ChunkSearchPort(Protocol):
     """Puerto de fetch"""
 
     def find_similar_chunks(
@@ -48,4 +48,4 @@ class SaveDocumentPort(Protocol):
     ) -> SaveOutcome: ...
 
 
-"""HealthCheckPort/use-case no agregado debido a la tribialidad"""
+# HealthCheckPort/use-case no agregado debido a la tribialidad

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.adapters.outbound.embeddings import (
+    openai_compatible as openai_compatible_module,
+)
+from app.adapters.outbound.embeddings.openai_compatible import (
+    OpenAICompatibleEmbedder,
+)
 from app.adapters.outbound.embeddings.provider import EmbeddingProvider
-from app.adapters.outbound.embeddings.repositories import (
-    embedding_repository as embedding_repository_module,
-)
-from app.adapters.outbound.embeddings.repositories.embedding_repository import (
-    OpenAICompatibleEmbeddingRepository,
-)
 from app.core.config import Settings
 
 
@@ -42,9 +42,9 @@ class _FakeOpenAIClient:
 
 def test_embed_texts_sends_model_and_texts_and_returns_vectors() -> None:
     client = _FakeOpenAIClient()
-    repo = OpenAICompatibleEmbeddingRepository(client, "fake-model")
+    embedder = OpenAICompatibleEmbedder(client, "fake-model")
 
-    vectors = repo.embed_texts(["ab", "abcd"])
+    vectors = embedder.embed_texts(["ab", "abcd"])
 
     assert client.embeddings.received_model == "fake-model"
     assert client.embeddings.received_input == ["ab", "abcd"]
@@ -53,18 +53,18 @@ def test_embed_texts_sends_model_and_texts_and_returns_vectors() -> None:
 
 def test_embed_query_embeds_a_single_text_and_unwraps_the_result() -> None:
     client = _FakeOpenAIClient()
-    repo = OpenAICompatibleEmbeddingRepository(client, "fake-model")
+    embedder = OpenAICompatibleEmbedder(client, "fake-model")
 
-    vector = repo.embed_query("abc")
+    vector = embedder.embed_query("abc")
 
     assert client.embeddings.received_input == ["abc"]
     assert vector == [3.0]
 
 
 def test_model_name_property_exposes_the_configured_model() -> None:
-    repo = OpenAICompatibleEmbeddingRepository(_FakeOpenAIClient(), "fake-model")
+    embedder = OpenAICompatibleEmbedder(_FakeOpenAIClient(), "fake-model")
 
-    assert repo.model_name == "fake-model"
+    assert embedder.model_name == "fake-model"
 
 
 def test_from_settings_wires_provider_api_key_base_url_and_model(monkeypatch) -> None:
@@ -76,7 +76,7 @@ def test_from_settings_wires_provider_api_key_base_url_and_model(monkeypatch) ->
         captured["base_url"] = base_url
         return _FakeOpenAIClient()
 
-    monkeypatch.setattr(embedding_repository_module, "build_client", fake_build_client)
+    monkeypatch.setattr(openai_compatible_module, "build_client", fake_build_client)
 
     settings = Settings(
         _env_file=None,
@@ -87,9 +87,9 @@ def test_from_settings_wires_provider_api_key_base_url_and_model(monkeypatch) ->
         EMBEDDING_MODEL="local-embed-model",
     )
 
-    repo = OpenAICompatibleEmbeddingRepository.from_settings(settings)
+    embedder = OpenAICompatibleEmbedder.from_settings(settings)
 
     assert captured["provider"] == EmbeddingProvider.LMSTUDIO
     assert captured["api_key"] == "setting-key"
     assert captured["base_url"] == "http://localhost:1234/v1"
-    assert repo.model_name == "local-embed-model"
+    assert embedder.model_name == "local-embed-model"

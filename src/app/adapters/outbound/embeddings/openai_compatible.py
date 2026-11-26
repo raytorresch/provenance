@@ -4,13 +4,13 @@ from app.adapters.outbound.embeddings.provider import EmbeddingProvider, build_c
 from app.core.config import Settings
 
 
-class OpenAICompatibleEmbeddingRepository:
+class OpenAICompatibleEmbedder:
     def __init__(self, client: OpenAI, model_name: str) -> None:
         self._client = client
         self._model_name = model_name
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> OpenAICompatibleEmbeddingRepository:
+    def from_settings(cls, settings: Settings) -> OpenAICompatibleEmbedder:
         provider = EmbeddingProvider(settings.EMBEDDING_PROVIDER)
         client = build_client(
             provider, settings.EMBEDDING_API_KEY, settings.EMBEDDING_BASE_URL
