@@ -20,7 +20,13 @@ def build_chunking_strategy(
 
 
 def _split_long_section(text: str, max_chars: int) -> list[str]:
-    """Divide una sección larga por párrafos sin romper bloques de código."""
+    """Divide una sección larga por párrafos sin romper bloques de código.
+
+    max_chars es un techo duro salvo por un único caso: un bloque atómico
+    (un párrafo o un bloque ``` ``` sin líneas en blanco internas) que por
+    sí solo ya supera max_chars se mantiene entero, porque esta función no
+    rompe bloques atómicos.
+    """
     if len(text) <= max_chars:
         return [text]
 
@@ -56,8 +62,18 @@ def _split_long_section(text: str, max_chars: int) -> list[str]:
         # Si agregar este bloque excede el límite y ya tenemos contenido, cerramos parte
         if current_part and current_len + block_len + 2 > max_chars:
             parts.append("\n\n".join(current_part))
-            # Overlap: conservamos el último bloque si no es demasiado grande
-            overlap = current_part[-1] if len(current_part[-1]) < max_chars // 2 else ""
+            # Overlap: conservamos el último bloque como contexto del
+            # siguiente part, pero solo si cabe junto al bloque que lo
+            # dispara; si no, el overlap por sí solo volvería a desbordar
+            # max_chars (el bloque disparador ya se comprobó solo, no junto
+            # al overlap).
+            last_block = current_part[-1]
+            overlap = (
+                last_block
+                if len(last_block) < max_chars // 2
+                and len(last_block) + block_len + 2 <= max_chars
+                else ""
+            )
             current_part = [overlap] if overlap else []
             current_len = len(overlap)
 

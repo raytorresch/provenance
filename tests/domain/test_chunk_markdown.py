@@ -125,7 +125,30 @@ def test_split_long_section_keeps_code_block_atomic_despite_internal_blank_line(
 
     parts = _split_long_section(text, max_chars=1)
 
+    # Known soft limit: an atomic block (here, one fenced code block with no
+    # internal blank line) is never split, so it can exceed max_chars on its
+    # own. Every other part stays within max_chars (see the tests below).
     assert parts == [text]
+
+
+def test_split_long_section_never_exceeds_max_chars_when_no_single_block_does() -> None:
+    # Regression for a part computed by overlapping the previous part's
+    # trailing block (700 chars) onto a fresh block (900 chars) without
+    # rechecking the combined size against max_chars: 700 + 2 + 900 = 1602,
+    # over the 1500 limit, even though each block is individually small
+    # enough and the carried-over overlap looked small enough on its own.
+    block_a = "A" * 700
+    block_b = "B" * 700
+    block_c = "C" * 900
+    text = f"{block_a}\n\n{block_b}\n\n{block_c}"
+
+    parts = _split_long_section(text, max_chars=1500)
+
+    assert all(len(part) <= 1500 for part in parts)
+    # The content must still all be there, uncut mid-block.
+    assert block_a in "".join(parts)
+    assert block_b in "".join(parts)
+    assert block_c in "".join(parts)
 
 
 def test_trailing_colon_is_stripped_from_heading_path() -> None:
