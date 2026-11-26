@@ -27,7 +27,9 @@ class _FakeRepository:
         self.exists_calls.append(payload)
         return self._exists
 
-    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> SaveOutcome:
+    def save_document_with_embeddings(
+        self, payload: SaveDocumentPayload
+    ) -> SaveOutcome:
         self.save_calls.append(payload)
         return self._save_outcome
 

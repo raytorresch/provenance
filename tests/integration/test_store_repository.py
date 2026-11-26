@@ -28,21 +28,25 @@ def _payload(
     chunks: list[ChunkData] | None = None,
     embeddings: list[list[float]] | None = None,
 ) -> SaveDocumentPayload:
-    chunks = chunks if chunks is not None else [
-        ChunkData(
-            ordinal=0,
-            heading_path="Context",
-            content="Original context.",
-        ),
-        ChunkData(
-            ordinal=1,
-            heading_path="Decision",
-            content="Original decision.",
-        ),
-    ]
-    embeddings = embeddings if embeddings is not None else [
-        [1.0, 0.0, 0.0] for _ in chunks
-    ]
+    chunks = (
+        chunks
+        if chunks is not None
+        else [
+            ChunkData(
+                ordinal=0,
+                heading_path="Context",
+                content="Original context.",
+            ),
+            ChunkData(
+                ordinal=1,
+                heading_path="Decision",
+                content="Original decision.",
+            ),
+        ]
+    )
+    embeddings = (
+        embeddings if embeddings is not None else [[1.0, 0.0, 0.0] for _ in chunks]
+    )
     return SaveDocumentPayload(
         adr_code=adr_code,
         title=title,
@@ -93,7 +97,9 @@ def test_exists_by_keys_is_false_for_a_different_model_name(
 
     repo.save_document_with_embeddings(payload)
 
-    assert repo.exists_by_keys(_fetch_payload_for(payload, model_name="model-b")) is False
+    assert (
+        repo.exists_by_keys(_fetch_payload_for(payload, model_name="model-b")) is False
+    )
 
 
 def test_save_new_document_inserts_document_chunks_and_embeddings(

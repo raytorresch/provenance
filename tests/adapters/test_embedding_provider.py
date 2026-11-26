@@ -36,6 +36,8 @@ def test_build_client_lmstudio_defaults_to_local_server() -> None:
 
 
 def test_build_client_passes_through_api_key() -> None:
-    client = build_client(EmbeddingProvider.OPENAI, api_key="super-secret", base_url=None)
+    client = build_client(
+        EmbeddingProvider.OPENAI, api_key="super-secret", base_url=None
+    )
 
     assert client.api_key == "super-secret"

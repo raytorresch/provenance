@@ -1,0 +1,81 @@
+from __future__ import annotations
+
+import argparse
+import re
+from pathlib import Path
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from app.adapters.outbound.embeddings.openai_compatible import OpenAICompatibleEmbedder
+from app.adapters.outbound.extractors.markdown import MarkdownFileExtractor
+from app.adapters.outbound.persistence.repositories.store_repository import (
+    StoreRepository,
+)
+from app.application.ingest_adr import IngestAdrUseCase
+from app.core.config import get_settings
+from app.core.database import get_sqlalchemy_url
+from app.domain.chunking import DEFAULT_MAX_CHARS
+from app.domain.entities import DocumentInput
+
+_ADR_FILENAME_RE = re.compile(r"^(\d+)-(.+)$")
+
+
+def _adr_code_for(path: Path) -> str:
+    match = _ADR_FILENAME_RE.match(path.stem)
+    number = match.group(1) if match else path.stem
+    return f"ADR-{number}"
+
+
+def _title_for(path: Path, raw_markdown: str) -> str:
+    for line in raw_markdown.splitlines():
+        if line.startswith("# "):
+            return line.removeprefix("# ").strip()
+    match = _ADR_FILENAME_RE.match(path.stem)
+    slug = match.group(2) if match else path.stem
+    return slug.replace("-", " ").title()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Ingest ADR markdown files into the RAG store."
+    )
+    parser.add_argument("adr_dir", nargs="?", default=Path("docs/adr"), type=Path)
+    parser.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
+    args = parser.parse_args()
+
+    adr_paths = sorted(args.adr_dir.glob("*.md"))
+    if not adr_paths:
+        raise SystemExit(f"No .md files found in {args.adr_dir}")
+
+    settings = get_settings()
+    extractor = MarkdownFileExtractor()
+    embedder = OpenAICompatibleEmbedder.from_settings(settings)
+
+    engine = create_engine(get_sqlalchemy_url())
+    with Session(engine) as session:
+        repository = StoreRepository(session)
+        use_case = IngestAdrUseCase(
+            repository=repository, embedder=embedder, max_chars=args.max_chars
+        )
+
+        for path in adr_paths:
+            raw_markdown = extractor.extract_markdown(path)
+            doc = DocumentInput(
+                adr_code=_adr_code_for(path),
+                title=_title_for(path, raw_markdown),
+                source_url=str(path),
+                raw_markdown=raw_markdown,
+            )
+            try:
+                outcome = use_case.execute(doc)
+            except Exception as exc:  # noqa: BLE001 - one bad ADR must not abort the batch
+                print(f"{doc.adr_code}: ERROR - {exc}")
+                continue
+            print(f"{doc.adr_code}: {outcome.value}")
+
+    engine.dispose()
+
+
+if __name__ == "__main__":
+    main()

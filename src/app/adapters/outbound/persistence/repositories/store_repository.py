@@ -33,7 +33,9 @@ class StoreRepository:
         )
         return self._session.execute(stmt).first() is not None
 
-    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> SaveOutcome:
+    def save_document_with_embeddings(
+        self, payload: SaveDocumentPayload
+    ) -> SaveOutcome:
         """Only saves document, chunks and embeddings; validations are done in the use case.
 
         Raises on a payload/DB inconsistency (e.g. ordinals that don't match
@@ -48,7 +50,9 @@ class StoreRepository:
             self._session.rollback()
             raise
 
-    def _save_document_with_embeddings(self, payload: SaveDocumentPayload) -> SaveOutcome:
+    def _save_document_with_embeddings(
+        self, payload: SaveDocumentPayload
+    ) -> SaveOutcome:
         document = self._session.execute(
             select(Document).where(Document.adr_code == payload.adr_code)
         ).scalar_one_or_none()
