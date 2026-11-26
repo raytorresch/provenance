@@ -1,0 +1,52 @@
+[
+  {
+    "question": "¿Qué es el Organization Entity y qué problema de multitenencia resuelve?",
+    "type": "directa",
+    "expected_adr_code": "ADR-0001"
+  },
+  {
+    "question": "¿Qué es root_uuid y para qué se usa en el versionado de checklists?",
+    "type": "directa",
+    "expected_adr_code": "ADR-0002"
+  },
+  {
+    "question": "¿Qué estados tiene la máquina de reconciliación de assets (ORPHAN, PENDING_BINARY, AVAILABLE) en el protocolo de sincronización?",
+    "type": "directa",
+    "expected_adr_code": "ADR-0009"
+  },
+  {
+    "question": "¿Qué rol juegan RevenueCat y Stripe en la arquitectura de paywall?",
+    "type": "directa",
+    "expected_adr_code": "ADR-0011"
+  },
+  {
+    "question": "Si el celular reenvía el mismo reporte varias veces por una mala conexión, ¿cómo evita el backend guardarlo dos veces?",
+    "type": "parafraseada",
+    "expected_adr_code": "ADR-0004"
+  },
+  {
+    "question": "¿Por qué no se puede editar directamente una checklist ya enviada, y qué pasa en su lugar cuando se corrige algo?",
+    "type": "parafraseada",
+    "expected_adr_code": "ADR-0002"
+  },
+  {
+    "question": "¿Qué pasa si la foto de un reporte llega al servidor antes que la información del reporte en sí?",
+    "type": "parafraseada",
+    "expected_adr_code": "ADR-0009"
+  },
+  {
+    "question": "Si un trabajador es administrador en una empresa pero solo supervisor en un proyecto de otra empresa, ¿cómo maneja el sistema esos dos niveles de permisos distintos?",
+    "type": "parafraseada",
+    "expected_adr_code": "ADR-0006"
+  },
+  {
+    "question": "¿Cuál es la mejor receta para hacer una tortilla de patatas?",
+    "type": "sin_respuesta",
+    "expected_adr_code": null
+  },
+  {
+    "question": "¿Cómo configuro un Horizontal Pod Autoscaler en Kubernetes para mi clúster?",
+    "type": "sin_respuesta",
+    "expected_adr_code": null
+  }
+]

@@ -1,0 +1,11 @@
+pregunta,tipo,adr_esperado,top1_correcto,posicion_del_correcto,similitud_top1
+¿Qué es el Organization Entity y qué problema de multitenencia resuelve?,directa,ADR-0001,True,1,0.7234
+¿Qué es root_uuid y para qué se usa en el versionado de checklists?,directa,ADR-0002,True,1,0.7162
+"¿Qué estados tiene la máquina de reconciliación de assets (ORPHAN, PENDING_BINARY, AVAILABLE) en el protocolo de sincronización?",directa,ADR-0009,True,1,0.6862
+¿Qué rol juegan RevenueCat y Stripe en la arquitectura de paywall?,directa,ADR-0011,True,1,0.818
+"Si el celular reenvía el mismo reporte varias veces por una mala conexión, ¿cómo evita el backend guardarlo dos veces?",parafraseada,ADR-0004,True,1,0.7033
+"¿Por qué no se puede editar directamente una checklist ya enviada, y qué pasa en su lugar cuando se corrige algo?",parafraseada,ADR-0002,True,1,0.6847
+¿Qué pasa si la foto de un reporte llega al servidor antes que la información del reporte en sí?,parafraseada,ADR-0009,False,4,0.6378
+"Si un trabajador es administrador en una empresa pero solo supervisor en un proyecto de otra empresa, ¿cómo maneja el sistema esos dos niveles de permisos distintos?",parafraseada,ADR-0006,True,1,0.6989
+¿Cuál es la mejor receta para hacer una tortilla de patatas?,sin_respuesta,(ninguno),n/a,n/a,0.4906
+¿Cómo configuro un Horizontal Pod Autoscaler en Kubernetes para mi clúster?,sin_respuesta,(ninguno),n/a,n/a,0.5027
