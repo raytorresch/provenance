@@ -4,12 +4,20 @@ import hashlib
 
 from app.application.ingest_adr import IngestAdrUseCase, IngestOutcome
 from app.domain.chunking import build_chunking_strategy, chunk_markdown
-from app.domain.entities import DocumentInput, FetchDocumentPayload, SaveDocumentPayload
+from app.domain.entities import (
+    DocumentInput,
+    FetchDocumentPayload,
+    SaveDocumentPayload,
+    SaveOutcome,
+)
 
 
 class _FakeRepository:
-    def __init__(self, exists: bool = False) -> None:
+    def __init__(
+        self, exists: bool = False, save_outcome: SaveOutcome = SaveOutcome.INSERTED
+    ) -> None:
         self._exists = exists
+        self._save_outcome = save_outcome
         self.exists_calls: list[FetchDocumentPayload] = []
         self.save_calls: list[SaveDocumentPayload] = []
 
@@ -17,9 +25,9 @@ class _FakeRepository:
         self.exists_calls.append(payload)
         return self._exists
 
-    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> int:
+    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> SaveOutcome:
         self.save_calls.append(payload)
-        return len(self.save_calls)
+        return self._save_outcome
 
 
 class _FakeEmbedder:
@@ -107,8 +115,10 @@ def test_execute_skips_header_injection_when_disabled() -> None:
     assert embedder.received_texts == ["Some content."]
 
 
-def test_execute_persists_hash_strategy_chunks_embeddings_and_returns_saved() -> None:
-    repo = _FakeRepository(exists=False)
+def test_execute_persists_hash_strategy_chunks_embeddings_and_returns_save_outcome() -> (
+    None
+):
+    repo = _FakeRepository(exists=False, save_outcome=SaveOutcome.INSERTED)
     embedder = _FakeEmbedder()
     doc = _make_doc("# Title\nSome content.")
     expected_hash = hashlib.sha256(doc.raw_markdown.encode("utf-8")).hexdigest()
@@ -117,7 +127,9 @@ def test_execute_persists_hash_strategy_chunks_embeddings_and_returns_saved() ->
 
     result = IngestAdrUseCase(repo, embedder).execute(doc)
 
-    assert result is IngestOutcome.SAVED
+    # The use case forwards exactly what the repository reports, instead of
+    # collapsing every successful save into a generic "saved".
+    assert result is SaveOutcome.INSERTED
     assert len(repo.save_calls) == 1
     call = repo.save_calls[0]
     assert call.adr_code == doc.adr_code
@@ -128,6 +140,16 @@ def test_execute_persists_hash_strategy_chunks_embeddings_and_returns_saved() ->
     assert call.chunks == expected_chunks
     assert call.embeddings == [[0.0]]
     assert call.model_name == "fake-model"
+
+
+def test_execute_forwards_whatever_save_outcome_the_repository_reports() -> None:
+    repo = _FakeRepository(exists=False, save_outcome=SaveOutcome.MODEL_ADDED)
+    embedder = _FakeEmbedder()
+    doc = _make_doc("# Title\nSome content.")
+
+    result = IngestAdrUseCase(repo, embedder).execute(doc)
+
+    assert result is SaveOutcome.MODEL_ADDED
 
 
 def test_execute_with_different_max_chars_produces_a_different_strategy_label() -> None:

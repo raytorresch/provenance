@@ -5,6 +5,7 @@ from app.domain.entities import (
     FetchDocumentPayload,
     RetrievedChunk,
     SaveDocumentPayload,
+    SaveOutcome,
 )
 
 
@@ -42,7 +43,9 @@ class SaveDocumentPort(Protocol):
 
     def exists_by_keys(self, payload: FetchDocumentPayload) -> bool: ...
 
-    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> bool: ...
+    def save_document_with_embeddings(
+        self, payload: SaveDocumentPayload
+    ) -> SaveOutcome: ...
 
 
 """HealthCheckPort/use-case no agregado debido a la tribialidad"""

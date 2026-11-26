@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import StrEnum
 
 
 @dataclass(frozen=True)
@@ -43,3 +44,14 @@ class FetchDocumentPayload:
     content_hash: str
     chunking_strategy: str
     model_name: str
+
+
+class SaveOutcome(StrEnum):
+    """Which idempotency case save_document_with_embeddings actually took,
+    so a caller (e.g. a CLI ingesting a batch of ADRs) can report what
+    happened to each document instead of a flat boolean."""
+
+    INSERTED = "inserted"
+    REPLACED = "replaced"
+    STRATEGY_ADDED = "strategy_added"
+    MODEL_ADDED = "model_added"

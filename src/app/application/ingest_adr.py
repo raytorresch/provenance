@@ -6,15 +6,23 @@ from app.domain.chunking import (
     build_chunking_strategy,
     chunk_markdown,
 )
-from app.domain.entities import DocumentInput, FetchDocumentPayload, SaveDocumentPayload
+from app.domain.entities import (
+    DocumentInput,
+    FetchDocumentPayload,
+    SaveDocumentPayload,
+    SaveOutcome,
+)
 from app.domain.ports import EmbeddingProviderPort, SaveDocumentPort
 
 
 class IngestOutcome(StrEnum):
+    """Early-exit outcomes that never reach the repository. A successful
+    save instead returns the repository's own SaveOutcome (INSERTED,
+    REPLACED, STRATEGY_ADDED, MODEL_ADDED) so callers see exactly what
+    happened, not a generic "saved"."""
+
     ALREADY_EXISTS = "already_exists"
     NO_CONTENT = "no_content"
-    SAVED = "saved"
-    NOT_SAVED = "not_saved"
 
 
 class IngestAdrUseCase:
@@ -30,7 +38,7 @@ class IngestAdrUseCase:
         self._max_chars = max_chars
         self._contextual_header = contextual_header
 
-    def execute(self, doc: DocumentInput) -> IngestOutcome:
+    def execute(self, doc: DocumentInput) -> IngestOutcome | SaveOutcome:
         """Ingesta un ADR de forma idempotente."""
         content_hash = hashlib.sha256(doc.raw_markdown.encode("utf-8")).hexdigest()
         strategy = build_chunking_strategy(
@@ -62,7 +70,7 @@ class IngestAdrUseCase:
         # 4. Generar vectores
         vectors = self._embedder.embed_texts(texts_to_embed)
 
-        # 5. Persistir
+        # 5. Persistir; un fallo se propaga como excepción, no como False.
         save_payload = SaveDocumentPayload(
             adr_code=doc.adr_code,
             title=doc.title,
@@ -73,9 +81,4 @@ class IngestAdrUseCase:
             embeddings=vectors,
             model_name=self._embedder.model_name,
         )
-        saved = self._repo.save_document_with_embeddings(save_payload)
-
-        if not saved:
-            return IngestOutcome.NOT_SAVED
-
-        return IngestOutcome.SAVED
+        return self._repo.save_document_with_embeddings(save_payload)

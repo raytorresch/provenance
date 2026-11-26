@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -7,7 +8,12 @@ from app.adapters.outbound.persistence.models.rag import Chunk, ChunkEmbedding, 
 from app.adapters.outbound.persistence.repositories.store_repository import (
     StoreRepository,
 )
-from app.domain.entities import ChunkData, FetchDocumentPayload, SaveDocumentPayload
+from app.domain.entities import (
+    ChunkData,
+    FetchDocumentPayload,
+    SaveDocumentPayload,
+    SaveOutcome,
+)
 
 
 def _payload(
@@ -97,7 +103,7 @@ def test_save_new_document_inserts_document_chunks_and_embeddings(
 
     result = repo.save_document_with_embeddings(payload)
 
-    assert result is True
+    assert result is SaveOutcome.INSERTED
 
     document = db_session.execute(
         select(Document).where(Document.adr_code == payload.adr_code)
@@ -148,7 +154,7 @@ def test_save_with_changed_content_hash_replaces_chunks_and_embeddings(
 
     result = repo.save_document_with_embeddings(updated)
 
-    assert result is True
+    assert result is SaveOutcome.REPLACED
 
     document = db_session.execute(
         select(Document).where(Document.adr_code == original.adr_code)
@@ -199,7 +205,7 @@ def test_save_with_same_content_new_strategy_adds_chunks_without_touching_others
 
     result = repo.save_document_with_embeddings(new_strategy_payload)
 
-    assert result is True
+    assert result is SaveOutcome.STRATEGY_ADDED
 
     document = db_session.execute(
         select(Document).where(Document.adr_code == original.adr_code)
@@ -230,7 +236,7 @@ def test_save_with_same_content_and_strategy_new_model_only_adds_embeddings(
 
     result = repo.save_document_with_embeddings(second_model_payload)
 
-    assert result is True
+    assert result is SaveOutcome.MODEL_ADDED
 
     document = db_session.execute(
         select(Document).where(Document.adr_code == original.adr_code)
@@ -263,3 +269,28 @@ def test_save_with_same_content_and_strategy_new_model_only_adds_embeddings(
     }
     assert by_ordinal_and_model[(0, "model-b")] == [0.1, 0.2, 0.3]
     assert by_ordinal_and_model[(1, "model-b")] == [0.4, 0.5, 0.6]
+
+
+def test_save_with_same_content_and_strategy_raises_on_unmatched_ordinal(
+    db_session: Session,
+) -> None:
+    """A payload that claims the same content and strategy as what's already
+    stored, but with a chunk ordinal that has no matching row, is a
+    payload/DB inconsistency. It must fail loudly instead of silently
+    dropping that chunk's embedding."""
+    repo = StoreRepository(db_session)
+    original = _payload(content_hash="hash-v1")  # ordinals 0 and 1
+    repo.save_document_with_embeddings(original)
+
+    inconsistent_payload = _payload(
+        model_name="model-b",
+        content_hash="hash-v1",
+        chunks=[
+            ChunkData(ordinal=0, heading_path="Context", content="Original context."),
+            ChunkData(ordinal=99, heading_path="Nowhere", content="No matching chunk."),
+        ],
+        embeddings=[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+    )
+
+    with pytest.raises(ValueError, match="99"):
+        repo.save_document_with_embeddings(inconsistent_payload)

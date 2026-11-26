@@ -4,15 +4,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adapters.outbound.persistence.models.rag import Chunk, ChunkEmbedding, Document
-from app.domain.entities import FetchDocumentPayload, SaveDocumentPayload
+from app.domain.entities import FetchDocumentPayload, SaveDocumentPayload, SaveOutcome
 
 
 class StoreRepository:
     # Resolves idempotency against: adr_code, content_hash, chunking_strategy, model_name
-    # adr_code doesn't exist - insert document, chunks and embeddings
-    # adr_code exists - content_hash doesn't match - replace all chunks (cascade deletes embeddings)
-    # adr_code exists - content_hash matches - chunking_strategy doesn't exist - add chunks and embeddings
-    # adr_code exists - content_hash matches - chunking_strategy exists - model_name doesn't exist - add embeddings only
+    # adr_code doesn't exist - insert document, chunks and embeddings -> SaveOutcome.INSERTED
+    # adr_code exists - content_hash doesn't match - replace all chunks (cascade deletes embeddings) -> SaveOutcome.REPLACED
+    # adr_code exists - content_hash matches - chunking_strategy doesn't exist - add chunks and embeddings -> SaveOutcome.STRATEGY_ADDED
+    # adr_code exists - content_hash matches - chunking_strategy exists - model_name doesn't exist - add embeddings only -> SaveOutcome.MODEL_ADDED
     # adr_code exists - content_hash matches - chunking_strategy exists - model_name exists - nothing to do
     #   (exists_by_keys already short-circuits this case before save is called)
 
@@ -33,8 +33,12 @@ class StoreRepository:
         )
         return self._session.execute(stmt).first() is not None
 
-    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> bool:
-        """Only saves document, chunks and embeddings; validations are done in the use case."""
+    def save_document_with_embeddings(self, payload: SaveDocumentPayload) -> SaveOutcome:
+        """Only saves document, chunks and embeddings; validations are done in the use case.
+
+        Raises on a payload/DB inconsistency (e.g. ordinals that don't match
+        any existing chunk) instead of swallowing it as a falsy return.
+        """
 
         document = self._session.execute(
             select(Document).where(Document.adr_code == payload.adr_code)
@@ -51,7 +55,7 @@ class StoreRepository:
             self._session.flush()  # need document.id for the chunks FK
             self._insert_chunks_with_embeddings(document.id, payload)
             self._session.commit()
-            return True
+            return SaveOutcome.INSERTED
 
         if document.content_hash != payload.content_hash:
             # Content changed: drop every chunk under every strategy for this
@@ -65,7 +69,7 @@ class StoreRepository:
             self._session.flush()
             self._insert_chunks_with_embeddings(document.id, payload)
             self._session.commit()
-            return True
+            return SaveOutcome.REPLACED
 
         existing_chunks = (
             self._session.execute(
@@ -82,12 +86,25 @@ class StoreRepository:
             # leaving chunks from other strategies untouched.
             self._insert_chunks_with_embeddings(document.id, payload)
             self._session.commit()
-            return True
+            return SaveOutcome.STRATEGY_ADDED
 
         # Same content, same strategy: chunks already exist, only the
         # embedding model is new. Attach embeddings to the existing chunk
         # rows by ordinal instead of duplicating chunks.
         chunk_id_by_ordinal = {chunk.ordinal: chunk.id for chunk in existing_chunks}
+        unmatched_ordinals = [
+            chunk_data.ordinal
+            for chunk_data in payload.chunks
+            if chunk_data.ordinal not in chunk_id_by_ordinal
+        ]
+        if unmatched_ordinals:
+            raise ValueError(
+                f"adr_code={payload.adr_code!r} chunking_strategy="
+                f"{payload.chunking_strategy!r}: payload has chunks with "
+                f"ordinals {unmatched_ordinals} that don't match any "
+                "existing chunk"
+            )
+
         embeddings = [
             ChunkEmbedding(
                 chunk_id=chunk_id_by_ordinal[chunk_data.ordinal],
@@ -98,11 +115,10 @@ class StoreRepository:
             for chunk_data, vector in zip(
                 payload.chunks, payload.embeddings, strict=True
             )
-            if chunk_data.ordinal in chunk_id_by_ordinal
         ]
         self._session.add_all(embeddings)
         self._session.commit()
-        return True
+        return SaveOutcome.MODEL_ADDED
 
     def _insert_chunks_with_embeddings(
         self, document_id: int, payload: SaveDocumentPayload
