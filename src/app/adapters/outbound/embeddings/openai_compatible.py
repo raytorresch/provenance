@@ -1,6 +1,6 @@
 from openai import OpenAI
 
-from app.adapters.outbound.embeddings.provider import EmbeddingProvider, build_client
+from app.adapters.outbound.embeddings.provider import build_client
 from app.core.config import Settings
 
 
@@ -11,9 +11,12 @@ class OpenAICompatibleEmbedder:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> OpenAICompatibleEmbedder:
-        provider = EmbeddingProvider(settings.EMBEDDING_PROVIDER)
+        # settings.EMBEDDING_PROVIDER is already an EmbeddingProvider:
+        # Settings validates it at construction time.
         client = build_client(
-            provider, settings.EMBEDDING_API_KEY, settings.EMBEDDING_BASE_URL
+            settings.EMBEDDING_PROVIDER,
+            settings.EMBEDDING_API_KEY,
+            settings.EMBEDDING_BASE_URL,
         )
 
         return cls(client, settings.EMBEDDING_MODEL)

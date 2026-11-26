@@ -1,7 +1,14 @@
+from enum import StrEnum
 from functools import lru_cache
 
 from pydantic import AliasChoices, AliasPath, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class EmbeddingProvider(StrEnum):
+    OPENAI = "openai"
+    GEMINI = "gemini"
+    LMSTUDIO = "lmstudio"
 
 
 class Settings(BaseSettings):
@@ -35,15 +42,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("VECTOR_DB_URL", AliasPath("database", "url")),
     )
 
-    OPENAI_API_KEY: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "OPENAI_API_KEY",
-            AliasPath("project", "openai_api_key"),
-        ),
-    )
-
-    EMBEDDING_PROVIDER: str = Field(default="openai")
+    # EMBEDDING_PROVIDER is typed as the enum (not str) so an unknown value
+    # fails Settings construction at startup, instead of only surfacing the
+    # first time something calls build_client() with it.
+    EMBEDDING_PROVIDER: EmbeddingProvider = Field(default=EmbeddingProvider.OPENAI)
+    # No separate OPENAI_API_KEY field: it used to duplicate this one,
+    # holding the same credential under a second name. OPENAI_API_KEY is
+    # still accepted as the env var name, as a fallback alias, not as its
+    # own stored field.
     EMBEDDING_API_KEY: str | None = Field(
         default=None,
         validation_alias=AliasChoices("EMBEDDING_API_KEY", "OPENAI_API_KEY"),

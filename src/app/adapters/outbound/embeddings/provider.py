@@ -1,13 +1,6 @@
-from enum import StrEnum
-
 from openai import OpenAI
 
-
-class EmbeddingProvider(StrEnum):
-    OPENAI = "openai"
-    GEMINI = "gemini"
-    LMSTUDIO = "lmstudio"
-
+from app.core.config import EmbeddingProvider
 
 _DEFAULT_BASE_URLS = {
     EmbeddingProvider.GEMINI: "https://generativelanguage.googleapis.com/v1beta/openai/",

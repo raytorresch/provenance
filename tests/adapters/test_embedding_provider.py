@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from app.adapters.outbound.embeddings.provider import EmbeddingProvider, build_client
+from app.adapters.outbound.embeddings.provider import build_client
+from app.core.config import EmbeddingProvider
 
 
 def test_build_client_uses_explicit_base_url_over_default() -> None:

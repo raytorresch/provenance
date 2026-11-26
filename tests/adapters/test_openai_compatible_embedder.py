@@ -8,8 +8,7 @@ from app.adapters.outbound.embeddings import (
 from app.adapters.outbound.embeddings.openai_compatible import (
     OpenAICompatibleEmbedder,
 )
-from app.adapters.outbound.embeddings.provider import EmbeddingProvider
-from app.core.config import Settings
+from app.core.config import EmbeddingProvider, Settings
 
 
 @dataclass
