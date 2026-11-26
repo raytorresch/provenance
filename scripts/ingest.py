@@ -36,12 +36,33 @@ def _title_for(path: Path, raw_markdown: str) -> str:
     return slug.replace("-", " ").title()
 
 
+def _source_url_for(path: Path, base_url: str | None) -> str:
+    if base_url is None:
+        return str(path)
+    return f"{base_url.rstrip('/')}/{path.name}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ingest ADR markdown files into the RAG store."
     )
     parser.add_argument("adr_dir", nargs="?", default=Path("docs/adr"), type=Path)
     parser.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help=(
+            "Public URL prefix used to build each ADR's source_url, e.g. "
+            "https://github.com/org/repo/blob/main/adr. Without it, "
+            "source_url falls back to the local file path."
+        ),
+    )
+    parser.add_argument(
+        "--contextual-header",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Prefix each chunk's embedded text with its heading path.",
+    )
     args = parser.parse_args()
 
     adr_paths = sorted(args.adr_dir.glob("*.md"))
@@ -52,11 +73,15 @@ def main() -> None:
     extractor = MarkdownFileExtractor()
     embedder = OpenAICompatibleEmbedder.from_settings(settings)
 
+    failures = 0
     engine = create_engine(get_sqlalchemy_url())
     with Session(engine) as session:
         repository = StoreRepository(session)
         use_case = IngestAdrUseCase(
-            repository=repository, embedder=embedder, max_chars=args.max_chars
+            repository=repository,
+            embedder=embedder,
+            max_chars=args.max_chars,
+            contextual_header=args.contextual_header,
         )
 
         for path in adr_paths:
@@ -64,17 +89,21 @@ def main() -> None:
             doc = DocumentInput(
                 adr_code=_adr_code_for(path),
                 title=_title_for(path, raw_markdown),
-                source_url=str(path),
+                source_url=_source_url_for(path, args.base_url),
                 raw_markdown=raw_markdown,
             )
             try:
                 outcome = use_case.execute(doc)
             except Exception as exc:  # noqa: BLE001 - one bad ADR must not abort the batch
                 print(f"{doc.adr_code}: ERROR - {exc}")
+                failures += 1
                 continue
             print(f"{doc.adr_code}: {outcome.value}")
 
     engine.dispose()
+
+    if failures:
+        raise SystemExit(f"{failures} of {len(adr_paths)} ADR(s) failed to ingest.")
 
 
 if __name__ == "__main__":
