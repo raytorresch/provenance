@@ -29,8 +29,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ENVIRONMENT", AliasPath("environment")),
     )
 
+    # Required: no default. Without a real DB URL the app must fail fast at
+    # startup with a clear validation error, not limp along with None.
     VECTOR_DB_URL: str = Field(
-        default=None,
         validation_alias=AliasChoices("VECTOR_DB_URL", AliasPath("database", "url")),
     )
 

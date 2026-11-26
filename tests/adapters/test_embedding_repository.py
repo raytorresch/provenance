@@ -79,6 +79,8 @@ def test_from_settings_wires_provider_api_key_base_url_and_model(monkeypatch) ->
     monkeypatch.setattr(embedding_repository_module, "build_client", fake_build_client)
 
     settings = Settings(
+        _env_file=None,
+        VECTOR_DB_URL="postgresql://test:test@localhost:5432/test",
         EMBEDDING_PROVIDER="lmstudio",
         EMBEDDING_API_KEY="setting-key",
         EMBEDDING_BASE_URL="http://localhost:1234/v1",
