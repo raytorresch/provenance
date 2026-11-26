@@ -69,6 +69,14 @@ class IngestAdrUseCase:
 
         # 4. Generar vectores
         vectors = self._embedder.embed_texts(texts_to_embed)
+        if len(vectors) != len(chunks):
+            # Catch this here, before touching the repository/session. The
+            # repository's zip(strict=True) would also catch it, but only
+            # after document/chunk rows are already flushed.
+            raise ValueError(
+                f"embedder returned {len(vectors)} vectors for "
+                f"{len(chunks)} chunks (adr_code={doc.adr_code!r})"
+            )
 
         # 5. Persistir; un fallo se propaga como excepción, no como False.
         save_payload = SaveDocumentPayload(

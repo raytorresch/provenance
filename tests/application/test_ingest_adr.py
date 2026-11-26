@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 
+import pytest
+
 from app.application.ingest_adr import IngestAdrUseCase, IngestOutcome
 from app.domain.chunking import build_chunking_strategy, chunk_markdown
 from app.domain.entities import (
@@ -43,6 +45,18 @@ class _FakeEmbedder:
         self.call_count += 1
         self.received_texts = texts
         return [[float(i)] for i in range(len(texts))]
+
+
+class _MismatchedEmbedder:
+    """Simulates a misbehaving embedding provider that returns the wrong
+    number of vectors for the texts it was given."""
+
+    @property
+    def model_name(self) -> str:
+        return "mismatched-model"
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0]] if texts else []
 
 
 def _make_doc(raw_markdown: str) -> DocumentInput:
@@ -150,6 +164,20 @@ def test_execute_forwards_whatever_save_outcome_the_repository_reports() -> None
     result = IngestAdrUseCase(repo, embedder).execute(doc)
 
     assert result is SaveOutcome.MODEL_ADDED
+
+
+def test_execute_raises_before_saving_when_vector_count_does_not_match_chunk_count() -> (
+    None
+):
+    repo = _FakeRepository(exists=False)
+    embedder = _MismatchedEmbedder()
+    doc = _make_doc("# Title\nFirst.\n## Other\nSecond.")  # 2 chunks
+
+    with pytest.raises(ValueError, match="vectors"):
+        IngestAdrUseCase(repo, embedder).execute(doc)
+
+    # Caught in the use case, before the repository/session is ever touched.
+    assert repo.save_calls == []
 
 
 def test_execute_with_different_max_chars_produces_a_different_strategy_label() -> None:
