@@ -6,7 +6,6 @@ class ChunkData:
     ordinal: int
     heading_path: str
     content: str
-    chunk_strategy: str
 
 
 @dataclass(frozen=True)

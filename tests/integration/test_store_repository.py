@@ -26,13 +26,11 @@ def _payload(
             ordinal=0,
             heading_path="Context",
             content="Original context.",
-            chunk_strategy=chunking_strategy,
         ),
         ChunkData(
             ordinal=1,
             heading_path="Decision",
             content="Original decision.",
-            chunk_strategy=chunking_strategy,
         ),
     ]
     embeddings = embeddings if embeddings is not None else [
@@ -143,7 +141,6 @@ def test_save_with_changed_content_hash_replaces_chunks_and_embeddings(
                 ordinal=0,
                 heading_path="Context",
                 content="Rewritten context.",
-                chunk_strategy=original.chunking_strategy,
             )
         ],
         embeddings=[[0.0, 1.0, 0.0]],
@@ -195,7 +192,6 @@ def test_save_with_same_content_new_strategy_adds_chunks_without_touching_others
                 ordinal=0,
                 heading_path="Context",
                 content="Same content, different split.",
-                chunk_strategy="fixed_512_64",
             )
         ],
         embeddings=[[0.5, 0.5, 0.0]],
