@@ -37,9 +37,18 @@ class StoreRepository:
         """Only saves document, chunks and embeddings; validations are done in the use case.
 
         Raises on a payload/DB inconsistency (e.g. ordinals that don't match
-        any existing chunk) instead of swallowing it as a falsy return.
+        any existing chunk) instead of swallowing it as a falsy return. On
+        any failure the session is rolled back before re-raising, so the
+        caller's next save (e.g. the next ADR in a batch) starts from a
+        usable session instead of a transaction only the caller knows is dead.
         """
+        try:
+            return self._save_document_with_embeddings(payload)
+        except Exception:
+            self._session.rollback()
+            raise
 
+    def _save_document_with_embeddings(self, payload: SaveDocumentPayload) -> SaveOutcome:
         document = self._session.execute(
             select(Document).where(Document.adr_code == payload.adr_code)
         ).scalar_one_or_none()

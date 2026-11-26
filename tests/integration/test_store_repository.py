@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.adapters.outbound.persistence.models.rag import Chunk, ChunkEmbedding, Document
@@ -294,3 +295,32 @@ def test_save_with_same_content_and_strategy_raises_on_unmatched_ordinal(
 
     with pytest.raises(ValueError, match="99"):
         repo.save_document_with_embeddings(inconsistent_payload)
+
+
+def test_failed_insert_rolls_back_so_the_session_stays_usable_for_the_next_save(
+    db_session: Session,
+) -> None:
+    """Simulates a real insert failure: a duplicate ordinal violates the
+    chunks unique constraint mid-flush. Before the repository rolled back on
+    failure, this left the session's transaction aborted, so the next save
+    on the same session (e.g. the next ADR in a batch) would fail with a
+    confusing error instead of the actual problem."""
+    repo = StoreRepository(db_session)
+    broken_payload = _payload(
+        adr_code="ADR-STORE-BROKEN",
+        chunks=[
+            ChunkData(ordinal=0, heading_path="Context", content="First."),
+            ChunkData(ordinal=0, heading_path="Decision", content="Duplicate ordinal."),
+        ],
+        embeddings=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+    )
+
+    with pytest.raises(IntegrityError):
+        repo.save_document_with_embeddings(broken_payload)
+
+    # The next save in the batch must succeed on the same session, not
+    # inherit a dead transaction from the failed one.
+    next_payload = _payload(adr_code="ADR-STORE-NEXT-IN-BATCH")
+    result = repo.save_document_with_embeddings(next_payload)
+
+    assert result is SaveOutcome.INSERTED
